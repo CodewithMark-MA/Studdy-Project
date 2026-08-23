@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import { NextResponse } from 'next/server';
 
 import { safeParseAiJson } from '../../../lib/cleanJson';
@@ -63,22 +62,38 @@ export async function POST(request: Request) {
       return errorResponse('RATE_LIMITED', 'Too many explain requests. Please wait a moment and try again.', 429);
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      return errorResponse('INTERNAL_ERROR', 'Gemini API key is not configured.', 500);
+      return errorResponse('INTERNAL_ERROR', 'Groq API key is not configured.', 500);
     }
 
-    const ai = new GoogleGenAI({ apiKey });
-
-    const result = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: `${EXPLAIN_SYSTEM_PROMPT}\n\nUser text:\n${text}`,
-      config: {
-        responseMimeType: 'application/json',
+    const result = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: EXPLAIN_SYSTEM_PROMPT },
+          { role: 'user', content: `User text:\n${text}` },
+        ],
+        response_format: { type: 'json_object' },
+      }),
     });
 
-    const rawText = typeof result?.text === 'string' ? result.text : '';
+    if (!result.ok) {
+      throw new Error(`Groq API request failed with status ${result.status}.`);
+    }
+
+    const completion = (await result.json()) as {
+      choices?: Array<{ message?: { content?: unknown } }>;
+    };
+
+    const rawText = typeof completion.choices?.[0]?.message?.content === 'string'
+      ? completion.choices[0].message.content
+      : '';
     if (!rawText.trim()) {
       return errorResponse('AI_GENERATION_FAILED', 'The AI response was empty.', 500);
     }

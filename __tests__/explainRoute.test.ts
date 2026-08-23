@@ -2,15 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { POST } from '../app/api/explain/route';
 
-const mockGenerateContent = vi.fn();
+const mockFetch = vi.fn();
+vi.stubGlobal('fetch', mockFetch);
 
-vi.mock('@google/genai', () => ({
-  GoogleGenAI: vi.fn().mockImplementation(() => ({
-    models: {
-      generateContent: mockGenerateContent,
-    },
-  })),
-}));
+const mockGroqResponse = (content: string) => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ choices: [{ message: { content } }] }),
+  });
+};
 
 const VALID_TEXT = 'A'.repeat(500);
 
@@ -42,14 +43,12 @@ async function makeRequest(text: string, headers: Record<string, string> = {}) {
 
 describe('Explain API route', () => {
   beforeEach(() => {
-    process.env.GEMINI_API_KEY = 'test-key';
-    mockGenerateContent.mockReset();
+    process.env.GROQ_API_KEY = 'test-key';
+    mockFetch.mockReset();
   });
 
   it('accepts valid input and returns a validated explanation', async () => {
-    mockGenerateContent.mockResolvedValue({
-      text: JSON.stringify(validExplainPayload),
-    });
+    mockGroqResponse(JSON.stringify(validExplainPayload));
 
     const response = await makeRequest(VALID_TEXT);
     const body = await response.json();
@@ -58,6 +57,13 @@ describe('Explain API route', () => {
     expect(body.success).toBe(true);
     expect(body.data.summary).toBe(validExplainPayload.summary);
     expect(body.data.watchOutFor).toHaveLength(1);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.groq.com/openai/v1/chat/completions',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer test-key' }),
+        body: expect.stringContaining('"model":"llama-3.3-70b-versatile"'),
+      }),
+    );
   });
 
   it('rejects input shorter than 50 characters', async () => {
@@ -77,12 +83,10 @@ describe('Explain API route', () => {
   });
 
   it('accepts valid explain payload with empty watchOutFor array', async () => {
-    mockGenerateContent.mockResolvedValue({
-      text: JSON.stringify({
+    mockGroqResponse(JSON.stringify({
         ...validExplainPayload,
         watchOutFor: [],
-      }),
-    });
+      }));
 
     const response = await makeRequest(VALID_TEXT);
     const body = await response.json();
@@ -93,9 +97,7 @@ describe('Explain API route', () => {
   });
 
   it('rejects malformed AI JSON', async () => {
-    mockGenerateContent.mockResolvedValue({
-      text: '```json\n{ invalid json',
-    });
+    mockGroqResponse('```json\n{ invalid json');
 
     const response = await makeRequest(VALID_TEXT);
     const body = await response.json();
@@ -105,11 +107,9 @@ describe('Explain API route', () => {
   });
 
   it('rejects invalid schema response', async () => {
-    mockGenerateContent.mockResolvedValue({
-      text: JSON.stringify({
+    mockGroqResponse(JSON.stringify({
         summary: 'Summary only',
-      }),
-    });
+      }));
 
     const response = await makeRequest(VALID_TEXT);
     const body = await response.json();
@@ -120,9 +120,7 @@ describe('Explain API route', () => {
 
   it('rejects rate-limited requests', async () => {
     for (let i = 0; i < 11; i += 1) {
-      mockGenerateContent.mockResolvedValue({
-        text: JSON.stringify(validExplainPayload),
-      });
+      mockGroqResponse(JSON.stringify(validExplainPayload));
 
       const response = await makeRequest(VALID_TEXT, { 'x-forwarded-for': '10.0.0.20' });
 
