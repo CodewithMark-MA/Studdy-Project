@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     const ai = new GoogleGenAI({ apiKey });
 
     const result = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-3.0-flash',
       contents: `${QUIZ_SYSTEM_PROMPT}\n\nUser notes:\n${text}`,
       config: {
         responseMimeType: 'application/json',
