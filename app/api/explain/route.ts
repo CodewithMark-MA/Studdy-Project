@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     const ai = new GoogleGenAI({ apiKey });
 
     const result = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.6-flash',
       contents: `${EXPLAIN_SYSTEM_PROMPT}\n\nUser text:\n${text}`,
       config: {
         responseMimeType: 'application/json',
