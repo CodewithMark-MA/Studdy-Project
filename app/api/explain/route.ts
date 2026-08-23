@@ -74,7 +74,7 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'openai/gpt-oss-120b',
         messages: [
           { role: 'system', content: EXPLAIN_SYSTEM_PROMPT },
           { role: 'user', content: `User text:\n${text}` },

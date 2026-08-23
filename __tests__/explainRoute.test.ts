@@ -61,7 +61,7 @@ describe('Explain API route', () => {
       'https://api.groq.com/openai/v1/chat/completions',
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: 'Bearer test-key' }),
-        body: expect.stringContaining('"model":"llama-3.3-70b-versatile"'),
+        body: expect.stringContaining('"model":"openai/gpt-oss-120b"'),
       }),
     );
   });
