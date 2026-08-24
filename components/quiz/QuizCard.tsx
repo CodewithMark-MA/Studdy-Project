@@ -1,10 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { QuizQuestion } from '../../lib/types';
 import styles from './QuizCard.module.css';
 
 export interface QuizCardProps {
   question: QuizQuestion;
   index: number;
+  answer?: string;
+  submitted?: boolean;
+  result?: {
+    isCorrect: boolean;
+    userAnswer: string;
+    correctAnswer: string;
+  };
+  onAnswerChange?: (answer: string) => void;
 }
 
 const typeLabels: Record<QuizQuestion['type'], string> = {
@@ -13,8 +21,8 @@ const typeLabels: Record<QuizQuestion['type'], string> = {
   short_answer: 'Short Answer',
 };
 
-export function QuizCard({ question, index }: QuizCardProps) {
-  const [isRevealed, setIsRevealed] = useState(false);
+export function QuizCard({ question, index, answer = '', submitted = false, result, onAnswerChange }: QuizCardProps) {
+  const inputName = `quiz-question-${question.id}`;
 
   return (
     <article className={styles.card}>
@@ -24,14 +32,11 @@ export function QuizCard({ question, index }: QuizCardProps) {
           <span className={styles.badge}>{typeLabels[question.type]}</span>
         </div>
 
-        <button
-          type="button"
-          className={styles.toggle}
-          onClick={() => setIsRevealed((current) => !current)}
-          aria-expanded={isRevealed}
-        >
-          {isRevealed ? 'Hide Answer' : 'Reveal Answer'}
-        </button>
+        {submitted && result ? (
+          <span className={result.isCorrect ? styles.correctStatus : styles.incorrectStatus}>
+            {result.isCorrect ? 'Correct' : 'Incorrect'}
+          </span>
+        ) : null}
       </div>
 
       <h3 className={styles.question}>{question.question}</h3>
@@ -39,17 +44,25 @@ export function QuizCard({ question, index }: QuizCardProps) {
       {question.type === 'multiple_choice' ? (
         <div className={styles.options}>
           {question.options.map((option, optionIndex) => {
-            const isCorrect = option === question.answer;
-            const isShown = isRevealed && isCorrect;
+            const isSelected = answer === option;
 
             return (
-              <div
+              <label
                 key={`${question.id}-option-${optionIndex}`}
-                className={`${styles.option} ${isShown ? styles.correctOption : ''}`}
+                className={`${styles.option} ${isSelected ? styles.selectedOption : ''} ${submitted && option === question.answer ? styles.correctOption : ''}`}
               >
+                <input
+                  type="radio"
+                  name={inputName}
+                  value={option}
+                  aria-label={`${String.fromCharCode(65 + optionIndex)}. ${option}`}
+                  checked={isSelected}
+                  onChange={() => onAnswerChange?.(option)}
+                  disabled={submitted}
+                />
                 <span className={styles.optionLabel}>{String.fromCharCode(65 + optionIndex)}.</span>
                 <span>{option}</span>
-              </div>
+              </label>
             );
           })}
         </div>
@@ -58,32 +71,54 @@ export function QuizCard({ question, index }: QuizCardProps) {
       {question.type === 'true_false' ? (
         <div className={styles.options}>
           {(['True', 'False'] as const).map((option) => {
-            const isCorrect = option === question.answer;
-            const isShown = isRevealed && isCorrect;
+            const isSelected = answer === option;
 
             return (
-              <div
+              <label
                 key={`${question.id}-${option}`}
-                className={`${styles.option} ${isShown ? styles.correctOption : ''}`}
+                className={`${styles.option} ${isSelected ? styles.selectedOption : ''} ${submitted && option === question.answer ? styles.correctOption : ''}`}
               >
+                <input
+                  type="radio"
+                  name={inputName}
+                  value={option}
+                  aria-label={`${option === 'True' ? 'T' : 'F'}. ${option}`}
+                  checked={isSelected}
+                  onChange={() => onAnswerChange?.(option)}
+                  disabled={submitted}
+                />
                 <span className={styles.optionLabel}>{option === 'True' ? 'T' : 'F'}.</span>
                 <span>{option}</span>
-              </div>
+              </label>
             );
           })}
         </div>
       ) : null}
 
       {question.type === 'short_answer' ? (
-        <div className={`${styles.shortAnswer} ${isRevealed ? styles.visibleAnswer : ''}`}>
-          {isRevealed ? question.answer : 'Answer hidden'}
+        <div className={styles.shortAnswer}>
+          <label className={styles.inputLabel} htmlFor={`short-answer-${question.id}`}>Your answer</label>
+          <textarea
+            id={`short-answer-${question.id}`}
+            value={answer}
+            onChange={(event) => onAnswerChange?.(event.target.value)}
+            disabled={submitted}
+            rows={2}
+            placeholder="Type your answer"
+          />
         </div>
       ) : null}
 
-      {isRevealed ? (
+      {submitted && result ? (
         <div className={styles.answerBlock}>
-          <span className={styles.answerLabel}>Answer</span>
-          <p>{question.answer}</p>
+          <div>
+            <span className={styles.answerLabel}>Your answer</span>
+            <p>{result.userAnswer.trim() || 'Unanswered'}</p>
+          </div>
+          <div>
+            <span className={styles.answerLabel}>Correct answer</span>
+            <p>{result.correctAnswer}</p>
+          </div>
         </div>
       ) : null}
     </article>
