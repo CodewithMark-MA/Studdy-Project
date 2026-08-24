@@ -102,7 +102,7 @@ The following are explicitly **out of scope for the MVP** (moved to Post-MVP / B
 |---|---|
 | FR-Q1 | A large text area accepts user's class notes. |
 | FR-Q2 | Minimum input length: **50 characters**. Below this, display an inline validation error. |
-| FR-Q3 | Quiz input must contain at least **50 characters**. Display a character counter. |
+| FR-Q3 | Quiz input must contain **50–8,000 characters** to fit the two-batch generation budget. Display a character counter. |
 | FR-Q4 | A **"Generate Quiz"** button triggers submission. |
 
 #### Processing

@@ -194,7 +194,7 @@ Generates 10 practice questions from provided notes.
 #### Input Validation Protocol:
 1. `text` must be a non-null string.
 2. `text.trim().length` must be `≥ 50` characters. Return HTTP `400` if shorter.
-3. `text.length` must be at least `50` characters. Quiz input has no maximum character limit.
+3. `text.length` must be between `50` and `8,000` characters. Return HTTP `400` if outside that range.
 
 #### Sample Request Body:
 ```json

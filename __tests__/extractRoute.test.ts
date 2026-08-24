@@ -55,9 +55,12 @@ describe('Extract API route', () => {
     expect((await shortResponse.json()).error.message).toMatch(/at least 50/i);
   });
 
-  it('accepts extracted text above the former 10000-character limit', async () => {
-    const response = await makeRequest('notes.txt', 'A'.repeat(10001), 'text/plain');
+  it('fits extracted text above the 8000-character limit while preserving both ends', async () => {
+    const response = await makeRequest('notes.txt', 'A'.repeat(8001), 'text/plain');
+    const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(body.text.length).toBeLessThanOrEqual(8000);
+    expect(body.text).toContain('[Middle content omitted to fit the study limit]');
   });
 });

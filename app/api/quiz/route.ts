@@ -6,6 +6,7 @@ import { checkRateLimit } from '../../../lib/rateLimit';
 import { QuizQuestionSchema, QuizResponseSchema } from '../../../lib/schemas/quizSchema';
 import type { ApiErrorPayload } from '../../../lib/types';
 import { validateInputText } from '../../../lib/validateInput';
+import { QUIZ_MAX_INPUT_LENGTH } from '../../../lib/quiz/constants';
 
 const QUIZ_SYSTEM_PROMPT = `
 You are an expert educational assessment generator.
@@ -55,7 +56,7 @@ const BATCHES = [
   { label: 'Batch 1', multipleChoice: 10, trueFalse: 8, shortAnswer: 7 },
   { label: 'Batch 2', multipleChoice: 10, trueFalse: 7, shortAnswer: 8 },
 ] as const;
-const MAX_COMPLETION_TOKENS = 8192;
+const MAX_COMPLETION_TOKENS = 4096;
 const BatchResponseSchema = z.object({
   questions: z.array(QuizQuestionSchema).length(25, 'Each batch must contain exactly 25 questions'),
 });
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
     }
 
     const text = typeof body === 'object' && body !== null && 'text' in body ? (body as { text?: unknown }).text : undefined;
-    const validationResult = validateInputText(text);
+    const validationResult = validateInputText(text, QUIZ_MAX_INPUT_LENGTH);
 
     if (!validationResult.isValid) {
       return errorResponse(

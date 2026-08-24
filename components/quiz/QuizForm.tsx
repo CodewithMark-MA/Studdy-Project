@@ -5,12 +5,12 @@ import { ErrorBanner } from '../ui/ErrorBanner';
 import { Spinner } from '../ui/Spinner';
 import { TextArea } from '../ui/TextArea';
 import styles from './QuizForm.module.css';
+import { QUIZ_MAX_INPUT_LENGTH, QUIZ_MIN_INPUT_LENGTH } from '../../lib/quiz/constants';
 
 export interface QuizFormProps {
   onSubmit: (notes: string) => Promise<void>;
 }
 
-const MIN_LENGTH = 50;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_FILE_TYPES = '.txt,.pdf,.docx';
 
@@ -30,8 +30,12 @@ export function QuizForm({ onSubmit }: QuizFormProps) {
       return 'Please paste some text to continue.';
     }
 
-    if (trimmed.length < MIN_LENGTH) {
+    if (trimmed.length < QUIZ_MIN_INPUT_LENGTH) {
       return 'Your text is too short. Please paste at least 50 characters.';
+    }
+
+    if (trimmed.length > QUIZ_MAX_INPUT_LENGTH) {
+      return `Text exceeds the maximum limit of ${QUIZ_MAX_INPUT_LENGTH.toLocaleString()} characters.`;
     }
 
     return null;
@@ -149,7 +153,8 @@ export function QuizForm({ onSubmit }: QuizFormProps) {
         placeholder="Paste your notes here..."
         value={notes}
         onChange={handleChange}
-        minLength={MIN_LENGTH}
+        minLength={QUIZ_MIN_INPUT_LENGTH}
+        maxLength={QUIZ_MAX_INPUT_LENGTH}
         error={error || (notes.trim() && validationError ? validationError : undefined)}
         charCount={notes.length}
       />
@@ -184,7 +189,7 @@ export function QuizForm({ onSubmit }: QuizFormProps) {
       </div>
 
       <div className={styles.footer}>
-        <p className={styles.helper}>Minimum {MIN_LENGTH} characters.</p>
+        <p className={styles.helper}>Minimum {QUIZ_MIN_INPUT_LENGTH} characters. Maximum {QUIZ_MAX_INPUT_LENGTH.toLocaleString()} characters.</p>
         <Button type="submit" disabled={isSubmitting} loading={isSubmitting}>
           Generate Quiz
         </Button>

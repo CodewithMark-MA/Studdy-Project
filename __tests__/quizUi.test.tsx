@@ -22,16 +22,15 @@ describe('Quiz UI', () => {
     expect(screen.getAllByText(/at least 50 characters/i).length).toBeGreaterThan(0);
   });
 
-  it('accepts notes above the former 10000-character limit', async () => {
-    const mockSubmit = vi.fn().mockResolvedValue(undefined);
+  it('rejects notes above the 8000-character limit', async () => {
     const user = userEvent.setup();
-    render(<QuizForm onSubmit={mockSubmit} />);
+    render(<QuizForm onSubmit={async () => undefined} />);
 
     const textarea = screen.getByLabelText(/Paste your class notes, chapters, or study text/i);
-    fireEvent.change(textarea, { target: { value: 'A'.repeat(10001) } });
+    fireEvent.change(textarea, { target: { value: 'A'.repeat(8001) } });
     await user.click(screen.getByRole('button', { name: /generate quiz/i }));
 
-    await waitFor(() => expect(mockSubmit).toHaveBeenCalledWith('A'.repeat(10001)));
+    expect(screen.getAllByText(/maximum limit of 8,000 characters/i).length).toBeGreaterThan(0);
   });
 
   it('renders a quiz list from successful submission', async () => {

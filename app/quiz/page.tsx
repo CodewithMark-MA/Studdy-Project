@@ -5,9 +5,9 @@ import { QuizForm } from '../../components/quiz/QuizForm';
 import { QuizList } from '../../components/quiz/QuizList';
 import { ErrorBanner } from '../../components/ui/ErrorBanner';
 import type { QuizQuestion, QuizSuccessResponsePayload } from '../../lib/types';
+import { QUIZ_MAX_INPUT_LENGTH, QUIZ_MIN_INPUT_LENGTH } from '../../lib/quiz/constants';
 import styles from './page.module.css';
 
-const MIN_LENGTH = 50;
 export default function QuizPage() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -19,8 +19,12 @@ export default function QuizPage() {
       throw new Error('Please paste some text to continue.');
     }
 
-    if (trimmed.length < MIN_LENGTH) {
+    if (trimmed.length < QUIZ_MIN_INPUT_LENGTH) {
       throw new Error('Your text is too short. Please paste at least 50 characters.');
+    }
+
+    if (trimmed.length > QUIZ_MAX_INPUT_LENGTH) {
+      throw new Error(`Text exceeds the maximum limit of ${QUIZ_MAX_INPUT_LENGTH.toLocaleString()} characters.`);
     }
 
     const response = await fetch('/api/quiz', {

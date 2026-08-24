@@ -132,7 +132,7 @@ Zod schema enforcing:
 - Exact count: array of 50 items with 20 MC / 15 TF / 15 Short Answer split.
 
 #### [NEW] `app/api/quiz/route.ts`
-1. Validate input (≥ 50 chars).
+1. Validate input (50–8,000 chars).
 2. Check IP rate limit (returns `429` if exceeded).
 3. Call Gemini 2.0 Flash via `@google/genai` with `responseMimeType: "application/json"`.
 4. Clean JSON markdown wrapper (`safeParseAiJson`).
@@ -147,7 +147,7 @@ Zod schema enforcing:
 Renders `<QuizForm>` and conditionally `<QuizList>`.
 
 #### [NEW] `components/quiz/QuizForm.tsx`
-Textarea input with client-side minimum length check (50 chars) and submit handler.
+Textarea input with client-side length check (50–8,000 chars) and submit handler.
 
 #### [NEW] `components/quiz/QuizCard.tsx`
 - Displays question number and type badge.

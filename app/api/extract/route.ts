@@ -3,6 +3,8 @@ import mammoth from 'mammoth';
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 
 import { validateInputText } from '../../../lib/validateInput';
+import { QUIZ_MAX_INPUT_LENGTH } from '../../../lib/quiz/constants';
+import { fitExtractedText } from '../../../lib/extractText';
 
 export const runtime = 'nodejs';
 
@@ -51,12 +53,13 @@ export async function POST(request: Request) {
       text = (await mammoth.extractRawText({ buffer })).value;
     }
 
-    const validationResult = validateInputText(text);
+    const fittedText = fitExtractedText(text, QUIZ_MAX_INPUT_LENGTH);
+    const validationResult = validateInputText(fittedText, QUIZ_MAX_INPUT_LENGTH);
     if (!validationResult.isValid) {
       return errorResponse(validationResult.errorMessage ?? 'The file does not contain usable study text.');
     }
 
-    return NextResponse.json({ success: true, text: text.trim() });
+    return NextResponse.json({ success: true, text: fittedText });
   } catch {
     return errorResponse('We could not extract text from that file. Please try another document.', 422);
   }

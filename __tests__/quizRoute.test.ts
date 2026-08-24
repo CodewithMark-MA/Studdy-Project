@@ -177,7 +177,7 @@ describe('Quiz API route', () => {
       'https://api.groq.com/openai/v1/chat/completions',
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: 'Bearer test-key' }),
-        body: expect.stringContaining('"max_completion_tokens":8192'),
+        body: expect.stringContaining('"max_completion_tokens":4096'),
       }),
     );
   });
@@ -190,12 +190,13 @@ describe('Quiz API route', () => {
     expect(body.error.code).toBe('TOO_SHORT');
   });
 
-  it('accepts input longer than the former 10000-character limit', async () => {
+  it('rejects input longer than the 8000-character limit', async () => {
     mockBatchResponses(JSON.stringify(validBatchOne), JSON.stringify(validBatchTwo));
 
-    const response = await makeRequest('A'.repeat(10001));
+    const response = await makeRequest('A'.repeat(8001));
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.code).toBe('TOO_LONG');
   });
 
   it('rejects rate-limited requests', async () => {
