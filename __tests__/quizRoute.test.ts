@@ -264,4 +264,19 @@ describe('Quiz API route', () => {
     expect(response.status).toBe(500);
     expect(body).toEqual({ success: false, error: { code: 'AI_GENERATION_FAILED', message: 'Groq unavailable' } });
   });
+
+  it('returns 429 when Groq rate limits a batch', async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: JSON.stringify(validBatchTwo) } }] }) });
+
+    const response = await makeRequest(VALID_TEXT);
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body).toEqual({
+      success: false,
+      error: { code: 'RATE_LIMITED', message: 'The quiz service is temporarily busy. Please wait a minute and try again.' },
+    });
+  });
 });

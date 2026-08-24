@@ -61,6 +61,12 @@ const BatchResponseSchema = z.object({
   questions: z.array(QuizQuestionSchema).length(25, 'Each batch must contain exactly 25 questions'),
 });
 
+class GroqRequestError extends Error {
+  constructor(public readonly status: number) {
+    super(`Groq API request failed with status ${status}.`);
+  }
+}
+
 const errorResponse = (code: ApiErrorPayload['error']['code'], message: string, status: number) =>
   NextResponse.json({ success: false, error: { code, message } }, { status });
 
@@ -120,7 +126,7 @@ export async function POST(request: Request) {
       });
 
       if (!result.ok) {
-        throw new Error(`Groq API request failed with status ${result.status}.`);
+        throw new GroqRequestError(result.status);
       }
 
       const completion = (await result.json()) as {
@@ -161,6 +167,9 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : 'Quiz generation failed.';
     if (message.startsWith('BATCH_VALIDATION:')) {
       return errorResponse('INVALID_INPUT', message.replace('BATCH_VALIDATION: ', ''), 400);
+    }
+    if (error instanceof GroqRequestError && error.status === 429) {
+      return errorResponse('RATE_LIMITED', 'The quiz service is temporarily busy. Please wait a minute and try again.', 429);
     }
     return errorResponse('AI_GENERATION_FAILED', message, 500);
   }
