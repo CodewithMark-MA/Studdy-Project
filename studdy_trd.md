@@ -194,7 +194,7 @@ Generates 10 practice questions from provided notes.
 #### Input Validation Protocol:
 1. `text` must be a non-null string.
 2. `text.trim().length` must be `≥ 50` characters. Return HTTP `400` if shorter.
-3. `text.length` must be `≤ 10,000` characters. Return HTTP `400` if longer.
+3. `text.length` must be at least `50` characters. Quiz input has no maximum character limit.
 
 #### Sample Request Body:
 ```json
@@ -249,7 +249,7 @@ Explains complex/dense text and flags critical clauses or warnings.
 #### Input Validation Protocol:
 1. `text` must be a non-null string.
 2. `text.trim().length` must be `≥ 50` characters. Return HTTP `400` if shorter.
-3. `text.length` must be `≤ 5,000` characters. Return HTTP `400` if longer.
+3. `text.length` must be at least `50` characters. Explain input has no maximum character limit.
 
 #### Sample HTTP 200 Success Response:
 ```json
@@ -295,11 +295,11 @@ export const QUIZ_SYSTEM_INSTRUCTION = `
 You are an expert educational assessment system. Your job is to generate a high-quality practice quiz based ONLY on the provided text.
 
 Strict Requirements:
-1. Generate EXACTLY 10 questions.
+1. Generate EXACTLY 50 questions.
 2. Question Type Distribution MUST be:
-   - 4 Multiple Choice questions (type: "multiple_choice") with EXACTLY 4 distractor options.
-   - 3 True/False questions (type: "true_false").
-   - 3 Short Answer questions (type: "short_answer").
+  - 20 Multiple Choice questions (type: "multiple_choice") with EXACTLY 4 options.
+  - 15 True/False questions (type: "true_false").
+  - 15 Short Answer questions (type: "short_answer").
 3. Hidden Answers: The 'answer' field must contain the correct answer explicitly.
 4. Output must match the exact JSON schema requested. Do not include markdown blocks or extra preamble.
 `;
@@ -431,8 +431,8 @@ To prevent API key depletion and denial-of-service abuse:
 ### 7.2 Component Responsibilities
 
 1. **`QuizForm.tsx`**
-   - Renders standard `<textarea>` with character count indicator (`X / 10,000`).
-   - Validates length instantly on change (`< 50` chars displays subtle helper alert; `> 10,000` disables submit button).
+  - Renders standard `<textarea>` with a character count indicator.
+  - Validates the minimum length instantly on change (`< 50` chars displays subtle helper alert).
    - Shows active loading spinner inside submit button during fetch.
 
 2. **`QuizCard.tsx`**
@@ -457,8 +457,8 @@ To guarantee high quality without bloat, the MVP includes automated unit tests t
    - Reject empty string (`""` → `INVALID_INPUT`).
    - Reject 49-character string (`TOO_SHORT`).
    - Accept 50-character string (valid).
-   - Accept max limit strings (5,000 for explain, 10,000 for quiz).
-   - Reject string exceeding maximum limit (`TOO_LONG`).
+  - Accept strings above the former Explain maximum limit.
+  - Continue rejecting strings below the minimum length.
 
 2. **Quiz Schema Validation Tests (`__tests__/quizSchema.test.ts`)**
    - Accept valid array of 10 questions with exact 4/3/3 split.

@@ -24,10 +24,6 @@ export default function ExplainPage() {
       throw new Error('Your text is too short. Please paste at least 50 characters.');
     }
 
-    if (trimmed.length > 5000) {
-      throw new Error('Text exceeds the maximum limit of 5,000 characters.');
-    }
-
     const response = await fetch('/api/explain', {
       method: 'POST',
       headers: {

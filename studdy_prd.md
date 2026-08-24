@@ -64,7 +64,7 @@ The following are explicitly **out of scope for the MVP** (moved to Post-MVP / B
 
 #### Feature 1: Quiz Generator
 
-> **US-01** — As a student, I want to paste my class notes and receive exactly 10 mixed-format practice questions (multiple choice, true/false, and short answer) so I can quiz myself without writing questions manually.
+> **US-01** — As a student, I want to paste my class notes and receive exactly 50 mixed-format practice questions (multiple choice, true/false, and short answer) so I can quiz myself without writing questions manually.
 
 > **US-02** — As a student, I want answers to be hidden by default and revealable per-question, so I can test myself honestly before checking.
 
@@ -102,16 +102,16 @@ The following are explicitly **out of scope for the MVP** (moved to Post-MVP / B
 |---|---|
 | FR-Q1 | A large text area accepts user's class notes. |
 | FR-Q2 | Minimum input length: **50 characters**. Below this, display an inline validation error. |
-| FR-Q3 | Maximum input length: **10,000 characters** (to control API cost and response time). Display a character counter. |
+| FR-Q3 | Quiz input must contain at least **50 characters**. Display a character counter. |
 | FR-Q4 | A **"Generate Quiz"** button triggers submission. |
 
 #### Processing
 
 | Requirement | Detail |
 |---|---|
-| FR-Q5 | The AI prompt instructs the model to return **exactly 10 questions** in a structured, validated format (JSON). |
-| FR-Q6 | Questions must include a **mix** of: multiple choice (4 options, 1 correct), true/false, and short answer. Exact split: 4 MC / 3 T-F / 3 short answer. |
-| FR-Q7 | The server validates the parsed AI response using Zod schema guards: exactly 10 items, each with strict type rules (MC has 4 options, TF answer is "True"/"False", Short Answer has no options). |
+| FR-Q5 | The AI prompt instructs the model to return **exactly 50 questions** in a structured, validated format (JSON). |
+| FR-Q6 | Questions must include a **mix** of: multiple choice (4 options, 1 correct), true/false, and short answer. Exact split: 20 MC / 15 T-F / 15 short answer. |
+| FR-Q7 | The server validates the parsed AI response using Zod schema guards: exactly 50 items, each with strict type rules (MC has 4 options, TF answer is "True"/"False", Short Answer has no options). |
 | FR-Q8 | If the AI response is malformed or fails validation, the server returns a structured error — never raw AI output. |
 
 #### Output
@@ -132,7 +132,7 @@ The following are explicitly **out of scope for the MVP** (moved to Post-MVP / B
 |---|---|
 | FR-E1 | A large text area accepts the difficult text. |
 | FR-E2 | Minimum input length: **50 characters**. Below this, display an inline validation error. |
-| FR-E3 | Maximum input length: **5,000 characters**. Display a character counter. |
+| FR-E3 | Explanation input must contain at least **50 characters**. Display a character counter. |
 | FR-E4 | An **"Explain This"** button triggers submission. |
 
 #### Processing

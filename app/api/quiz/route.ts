@@ -38,12 +38,17 @@ Return valid JSON only in this structure:
   ]
 }
 Requirements:
-- Exactly 10 questions total.
-- Exactly 4 multiple choice, 3 true/false, and 3 short answer.
+- Exactly 50 questions total.
+- Exactly 20 multiple choice, 15 true/false, and 15 short answer.
 - Each multiple choice question must have exactly 4 options.
 - Each true/false question must not include an options array.
 - Each short answer question must not include an options array.
 - Use only the source text to inform the questions.
+- Cover the source material broadly with a mixture of recall, comprehension, and application questions.
+- Avoid duplicate or substantially similar questions.
+- Include easy, medium, and challenging questions.
+- Keep questions, options, and answers concise so all 50 questions fit in one response.
+- Explanations are optional; omit them or keep them to one short sentence.
 - Ensure answers are accurate and strings are not empty.
 `;
 
@@ -61,7 +66,7 @@ export async function POST(request: Request) {
     }
 
     const text = typeof body === 'object' && body !== null && 'text' in body ? (body as { text?: unknown }).text : undefined;
-    const validationResult = validateInputText(text, 10000);
+    const validationResult = validateInputText(text);
 
     if (!validationResult.isValid) {
       return errorResponse(
@@ -92,6 +97,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model: 'openai/gpt-oss-120b',
+        max_completion_tokens: 8192,
         messages: [
           { role: 'system', content: QUIZ_SYSTEM_PROMPT },
           { role: 'user', content: `User notes:\n${text}` },

@@ -8,8 +8,6 @@ import type { QuizQuestion, QuizSuccessResponsePayload } from '../../lib/types';
 import styles from './page.module.css';
 
 const MIN_LENGTH = 50;
-const MAX_LENGTH = 10000;
-
 export default function QuizPage() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -23,10 +21,6 @@ export default function QuizPage() {
 
     if (trimmed.length < MIN_LENGTH) {
       throw new Error('Your text is too short. Please paste at least 50 characters.');
-    }
-
-    if (trimmed.length > MAX_LENGTH) {
-      throw new Error(`Text exceeds the maximum limit of ${MAX_LENGTH.toLocaleString()} characters.`);
     }
 
     const response = await fetch('/api/quiz', {

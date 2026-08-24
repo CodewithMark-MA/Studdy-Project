@@ -19,7 +19,7 @@
 > | Routing | **Two routes** (`/quiz`, `/explain`) + landing page at `/` |
 > | Theme | **Dark theme default** (light mode toggle moved to Post-MVP) |
 > | Safety Disclaimer | **Required** under Explain results: *"Studdy highlights potentially important information for easier reading. It does not provide legal, financial, or professional advice."* |
-> | Quiz Format | **Strict 10 questions** (4 Multiple Choice [4 options], 3 True/False ["True"/"False"], 3 Short Answer [no options]) |
+> | Quiz Format | **Strict 50 questions** (20 Multiple Choice [4 options], 15 True/False ["True"/"False"], 15 Short Answer [no options]) |
 > | Automated Tests | **Included in MVP scope** (Vitest unit tests for validation & Zod schemas) |
 > | Rate Limiting | Prototype in-memory IP limiter for local dev; **Upstash Redis** documented for serverless prod |
 
@@ -129,10 +129,10 @@ Zod schema enforcing:
 - `multiple_choice`: exactly 4 options, valid answer.
 - `true_false`: no options, answer strictly `"True"` or `"False"`.
 - `short_answer`: no options, non-empty answer string.
-- Exact count: array of 10 items with 4 MC / 3 TF / 3 Short Answer split.
+- Exact count: array of 50 items with 20 MC / 15 TF / 15 Short Answer split.
 
 #### [NEW] `app/api/quiz/route.ts`
-1. Validate input (≥ 50 chars, ≤ 10,000 chars).
+1. Validate input (≥ 50 chars).
 2. Check IP rate limit (returns `429` if exceeded).
 3. Call Gemini 2.0 Flash via `@google/genai` with `responseMimeType: "application/json"`.
 4. Clean JSON markdown wrapper (`safeParseAiJson`).
@@ -147,7 +147,7 @@ Zod schema enforcing:
 Renders `<QuizForm>` and conditionally `<QuizList>`.
 
 #### [NEW] `components/quiz/QuizForm.tsx`
-Textarea input with client-side length check (50 - 10,000 chars) and submit handler.
+Textarea input with client-side minimum length check (50 chars) and submit handler.
 
 #### [NEW] `components/quiz/QuizCard.tsx`
 - Displays question number and type badge.
@@ -165,7 +165,7 @@ Container displaying 10 `QuizCard` items and a "Generate New Quiz" button.
 Zod schema for `summary`, `detailedExplanation`, and `watchOutFor` array.
 
 #### [NEW] `app/api/explain/route.ts`
-1. Validate input (≥ 50 chars, ≤ 5,000 chars).
+1. Validate input (≥ 50 chars).
 2. Call Gemini 2.0 Flash with safety instruction ("clear-language assistant, not legal/financial advisor").
 3. Clean and parse JSON.
 4. Validate via `ExplainResponseSchema`.
@@ -179,7 +179,7 @@ Zod schema for `summary`, `detailedExplanation`, and `watchOutFor` array.
 Renders `<ExplainForm>` and conditionally `<ExplainResult>`.
 
 #### [NEW] `components/explain/ExplainForm.tsx`
-Textarea input with length check (50 - 5,000 chars) and loading state.
+Textarea input with minimum length check (50 chars) and loading state.
 
 #### [NEW] `components/explain/ExplainResult.tsx`
 - Side-by-side on desktop / stacked on mobile (Original text vs Plain explanation).
@@ -222,7 +222,7 @@ Expected output: 3 test suites passing (`validateInput`, `quizSchema`, `explainS
 
 ### Manual Verification Checklist
 - [ ] Quiz Generator rejects input < 50 chars inline.
-- [ ] Quiz Generator accepts valid notes and renders 10 questions with hidden answers.
+- [ ] Quiz Generator accepts valid notes and renders 50 questions with hidden answers.
 - [ ] Reveal Answer toggle shows answer per card.
 - [ ] Explain Text renders side-by-side explanation and Watch Out cards.
 - [ ] Safety Disclaimer appears under Explain Text results.

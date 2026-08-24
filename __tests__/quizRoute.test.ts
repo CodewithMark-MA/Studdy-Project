@@ -95,6 +95,31 @@ const validQuestionPayload = {
   ],
 };
 
+validQuestionPayload.questions.push(
+  ...Array.from({ length: 16 }, (_, index) => ({
+    id: index + 11,
+    type: 'multiple_choice',
+    question: `Additional multiple choice question ${index + 1}?`,
+    options: ['A', 'B', 'C', 'D'],
+    answer: 'A',
+    explanation: 'The source text supports this answer.',
+  })),
+  ...Array.from({ length: 12 }, (_, index) => ({
+    id: index + 27,
+    type: 'true_false',
+    question: `Additional true false question ${index + 1}?`,
+    answer: 'True',
+    explanation: 'The source text supports this answer.',
+  })),
+  ...Array.from({ length: 12 }, (_, index) => ({
+    id: index + 39,
+    type: 'short_answer',
+    question: `Additional short answer question ${index + 1}?`,
+    answer: 'Answer from the source text',
+    explanation: 'The source text supports this answer.',
+  })),
+);
+
 async function makeRequest(text: string, headers: Record<string, string> = {}) {
   return POST(
     new Request('http://localhost/api/quiz', {
@@ -122,15 +147,15 @@ describe('Quiz API route', () => {
 
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(body.data.questions).toHaveLength(10);
-    expect(body.data.questions.filter((q: any) => q.type === 'multiple_choice')).toHaveLength(4);
-    expect(body.data.questions.filter((q: any) => q.type === 'true_false')).toHaveLength(3);
-    expect(body.data.questions.filter((q: any) => q.type === 'short_answer')).toHaveLength(3);
+    expect(body.data.questions).toHaveLength(50);
+    expect(body.data.questions.filter((q: any) => q.type === 'multiple_choice')).toHaveLength(20);
+    expect(body.data.questions.filter((q: any) => q.type === 'true_false')).toHaveLength(15);
+    expect(body.data.questions.filter((q: any) => q.type === 'short_answer')).toHaveLength(15);
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.groq.com/openai/v1/chat/completions',
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: 'Bearer test-key' }),
-        body: expect.stringContaining('"model":"openai/gpt-oss-120b"'),
+        body: expect.stringContaining('"max_completion_tokens":8192'),
       }),
     );
   });
@@ -143,12 +168,12 @@ describe('Quiz API route', () => {
     expect(body.error.code).toBe('TOO_SHORT');
   });
 
-  it('rejects input longer than 10000 characters', async () => {
-    const response = await makeRequest('A'.repeat(10001));
-    const body = await response.json();
+  it('accepts input longer than the former 10000-character limit', async () => {
+    mockGroqResponse(JSON.stringify(validQuestionPayload));
 
-    expect(response.status).toBe(400);
-    expect(body.error.code).toBe('TOO_LONG');
+    const response = await makeRequest('A'.repeat(10001));
+
+    expect(response.status).toBe(200);
   });
 
   it('rejects rate-limited requests', async () => {
@@ -204,12 +229,12 @@ describe('Quiz API route', () => {
   it('rejects invalid question distribution', async () => {
     mockGroqResponse(JSON.stringify({
         title: 'Wrong Quiz',
-        questions: Array.from({ length: 10 }, (_, index) => ({
+        questions: Array.from({ length: 50 }, (_, index) => ({
           id: index + 1,
-          type: 'multiple_choice',
+          type: index < 20 ? 'multiple_choice' : index < 35 ? 'true_false' : 'short_answer',
           question: `Question ${index + 1}?`,
-          options: ['A', 'B', 'C', 'D'],
-          answer: 'A',
+          ...(index < 20 ? { options: ['A', 'B', 'C', 'D'] } : {}),
+          answer: index < 35 ? 'True' : 'A',
         })),
       }));
 

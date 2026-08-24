@@ -4,35 +4,44 @@ import { QuizResponseSchema } from '../lib/schemas/quizSchema';
 describe('Quiz Schema Validation Tests', () => {
   const makeValidQuiz = () => ({
     title: 'Cellular Biology Practice Quiz',
-    questions: [
-      { id: 1, type: 'multiple_choice', question: 'MC Q1', options: ['A', 'B', 'C', 'D'], answer: 'A' },
-      { id: 2, type: 'multiple_choice', question: 'MC Q2', options: ['A', 'B', 'C', 'D'], answer: 'B' },
-      { id: 3, type: 'multiple_choice', question: 'MC Q3', options: ['A', 'B', 'C', 'D'], answer: 'C' },
-      { id: 4, type: 'multiple_choice', question: 'MC Q4', options: ['A', 'B', 'C', 'D'], answer: 'D' },
-      { id: 5, type: 'true_false', question: 'TF Q1', answer: 'True' },
-      { id: 6, type: 'true_false', question: 'TF Q2', answer: 'False' },
-      { id: 7, type: 'true_false', question: 'TF Q3', answer: 'True' },
-      { id: 8, type: 'short_answer', question: 'SA Q1', answer: 'Answer 1' },
-      { id: 9, type: 'short_answer', question: 'SA Q2', answer: 'Answer 2' },
-      { id: 10, type: 'short_answer', question: 'SA Q3', answer: 'Answer 3' }
-    ]
+    questions: Array.from({ length: 50 }, (_, index) => {
+      const id = index + 1;
+      if (index < 20) {
+        return { id, type: 'multiple_choice' as const, question: `MC Q${id}`, options: ['A', 'B', 'C', 'D'] as [string, string, string, string], answer: 'A' };
+      }
+      if (index < 35) {
+        return { id, type: 'true_false' as const, question: `TF Q${id}`, answer: 'True' as const };
+      }
+      return { id, type: 'short_answer' as const, question: `SA Q${id}`, answer: `Answer ${id}` };
+    })
   });
 
-  it('accepts a valid 10-question payload with an exact 4/3/3 split', () => {
+  it('accepts a valid 50-question payload with an exact 20/15/15 split', () => {
     const parseResult = QuizResponseSchema.safeParse(makeValidQuiz());
     expect(parseResult.success).toBe(true);
   });
 
-  it('rejects a quiz with fewer than 10 questions', () => {
+  it('rejects a quiz with fewer than 50 questions', () => {
     const invalidQuiz = makeValidQuiz();
-    invalidQuiz.questions = invalidQuiz.questions.slice(0, 9);
+    invalidQuiz.questions = invalidQuiz.questions.slice(0, 49);
     const parseResult = QuizResponseSchema.safeParse(invalidQuiz);
     expect(parseResult.success).toBe(false);
   });
 
-  it('rejects a quiz with the wrong 4/3/3 distribution', () => {
+  it('rejects a quiz with more than 50 questions', () => {
     const invalidQuiz = makeValidQuiz();
-    invalidQuiz.questions = invalidQuiz.questions.slice(0, 10);
+    invalidQuiz.questions.push({
+      id: 51,
+      type: 'short_answer',
+      question: 'Extra question',
+      answer: 'Extra answer',
+    });
+    const parseResult = QuizResponseSchema.safeParse(invalidQuiz);
+    expect(parseResult.success).toBe(false);
+  });
+
+  it('rejects a quiz with the wrong 20/15/15 distribution', () => {
+    const invalidQuiz = makeValidQuiz();
     invalidQuiz.questions[0] = { ...invalidQuiz.questions[0], type: 'true_false', answer: 'True' };
     const parseResult = QuizResponseSchema.safeParse(invalidQuiz);
     expect(parseResult.success).toBe(false);

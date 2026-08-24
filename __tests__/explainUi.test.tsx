@@ -46,15 +46,34 @@ describe('Explain UI', () => {
     expect(screen.getAllByText(/at least 50 characters/i).length).toBeGreaterThan(0);
   });
 
-  it('rejects text above 5000 characters', async () => {
+  it('accepts text above the former 5000-character limit', async () => {
+    const mockSubmit = vi.fn().mockResolvedValue(undefined);
     const user = userEvent.setup();
-    render(<ExplainForm onSubmit={async () => undefined} />);
+    render(<ExplainForm onSubmit={mockSubmit} />);
 
     const textarea = screen.getByLabelText(/Paste the text you want explained/i);
     fireEvent.change(textarea, { target: { value: 'A'.repeat(5001) } });
     await user.click(screen.getByRole('button', { name: /explain text/i }));
 
-    expect(screen.getAllByText(/maximum limit of 5,000 characters/i).length).toBeGreaterThan(0);
+    await waitFor(() => expect(mockSubmit).toHaveBeenCalledWith('A'.repeat(5001)));
+  });
+
+  it('uses extracted upload text as the active explanation input', async () => {
+    const extractedText = 'Extracted study material with enough characters to explain clearly.';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, text: extractedText }),
+    }));
+    const mockSubmit = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+
+    render(<ExplainForm onSubmit={mockSubmit} />);
+    await user.upload(screen.getByLabelText(/upload your study material/i), new File(['document'], 'notes.txt', { type: 'text/plain' }));
+
+    expect(await screen.findByDisplayValue(extractedText)).toBeTruthy();
+    expect(screen.getByText('notes.txt')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /explain text/i }));
+    await waitFor(() => expect(mockSubmit).toHaveBeenCalledWith(extractedText));
   });
 
   it('calls /api/explain with valid text on submit', async () => {

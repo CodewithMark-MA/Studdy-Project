@@ -22,15 +22,16 @@ describe('Quiz UI', () => {
     expect(screen.getAllByText(/at least 50 characters/i).length).toBeGreaterThan(0);
   });
 
-  it('rejects notes above 10000 characters', async () => {
+  it('accepts notes above the former 10000-character limit', async () => {
+    const mockSubmit = vi.fn().mockResolvedValue(undefined);
     const user = userEvent.setup();
-    render(<QuizForm onSubmit={async () => undefined} />);
+    render(<QuizForm onSubmit={mockSubmit} />);
 
     const textarea = screen.getByLabelText(/Paste your class notes, chapters, or study text/i);
     fireEvent.change(textarea, { target: { value: 'A'.repeat(10001) } });
     await user.click(screen.getByRole('button', { name: /generate quiz/i }));
 
-    expect(screen.getAllByText(/maximum limit of 10,000 characters/i).length).toBeGreaterThan(0);
+    await waitFor(() => expect(mockSubmit).toHaveBeenCalledWith('A'.repeat(10001)));
   });
 
   it('renders a quiz list from successful submission', async () => {
@@ -47,10 +48,48 @@ describe('Quiz UI', () => {
     expect(mockSubmit.mock.calls[0][0]).toBe(validLongText);
   });
 
-  it('renders 10 quiz questions', () => {
+  it('uses extracted upload text as the active quiz input', async () => {
+    const user = userEvent.setup();
+    const extractedText = 'Extracted study material with enough characters to generate a quiz.';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, text: extractedText }),
+    }));
+    const mockSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(<QuizForm onSubmit={mockSubmit} />);
+    const fileInput = screen.getByLabelText(/upload your study material/i);
+    await user.upload(fileInput, new File(['document'], 'notes.txt', { type: 'text/plain' }));
+
+    expect(await screen.findByDisplayValue(extractedText)).toBeTruthy();
+    expect(screen.getByText('notes.txt')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /generate quiz/i }));
+    await waitFor(() => expect(mockSubmit).toHaveBeenCalledWith(extractedText));
+  });
+
+  it('extracts a file dropped onto the upload area', async () => {
+    const extractedText = 'Dropped study material with enough characters to generate a quiz.';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, text: extractedText }),
+    }));
+    render(<QuizForm onSubmit={vi.fn().mockResolvedValue(undefined)} />);
+
+    const uploadArea = screen.getByText(/drop a file here/i).parentElement;
+    expect(uploadArea).toBeTruthy();
+    fireEvent.drop(uploadArea as HTMLElement, {
+      dataTransfer: { files: [new File(['document'], 'dropped.txt', { type: 'text/plain' })] },
+    });
+
+    expect(await screen.findByDisplayValue(extractedText)).toBeTruthy();
+    expect(screen.getByText('dropped.txt')).toBeTruthy();
+  });
+
+  it('renders 50 quiz questions across navigable sections', async () => {
+    const user = userEvent.setup();
     const { container } = render(
       <QuizList
-        questions={Array.from({ length: 10 }, (_, index) => ({
+        questions={Array.from({ length: 50 }, (_, index) => ({
           id: index + 1,
           type: index % 3 === 0 ? 'multiple_choice' : index % 3 === 1 ? 'true_false' : 'short_answer',
           question: `Question ${index + 1}`,
@@ -61,6 +100,10 @@ describe('Quiz UI', () => {
       />,
     );
 
+    expect(container.querySelectorAll('article')).toHaveLength(10);
+    expect(screen.getByText('Questions 1-10 of 50')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Questions 11-20 of 50')).toBeTruthy();
     expect(container.querySelectorAll('article')).toHaveLength(10);
   });
 

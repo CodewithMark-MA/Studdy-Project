@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     }
 
     const text = typeof body === 'object' && body !== null && 'text' in body ? (body as { text?: unknown }).text : undefined;
-    const validationResult = validateInputText(text, 5000);
+    const validationResult = validateInputText(text);
 
     if (!validationResult.isValid) {
       return errorResponse(

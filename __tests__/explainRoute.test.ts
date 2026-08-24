@@ -74,12 +74,12 @@ describe('Explain API route', () => {
     expect(body.error.code).toBe('TOO_SHORT');
   });
 
-  it('rejects input longer than 5000 characters', async () => {
-    const response = await makeRequest('A'.repeat(5001));
-    const body = await response.json();
+  it('accepts input longer than the former 5000-character limit', async () => {
+    mockGroqResponse(JSON.stringify(validExplainPayload));
 
-    expect(response.status).toBe(400);
-    expect(body.error.code).toBe('TOO_LONG');
+    const response = await makeRequest('A'.repeat(5001));
+
+    expect(response.status).toBe(200);
   });
 
   it('accepts valid explain payload with empty watchOutFor array', async () => {

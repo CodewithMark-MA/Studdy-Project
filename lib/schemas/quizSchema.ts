@@ -49,14 +49,14 @@ export const QuizQuestionSchema = z.union([
 
 export const QuizResponseSchema = z.object({
   title: z.string().min(1),
-  questions: z.array(QuizQuestionSchema).length(10, "Must contain exactly 10 questions")
+  questions: z.array(QuizQuestionSchema).length(50, "Must contain exactly 50 questions")
 }).refine((data) => {
   const mc = data.questions.filter(q => q.type === 'multiple_choice').length;
   const tf = data.questions.filter(q => q.type === 'true_false').length;
   const sa = data.questions.filter(q => q.type === 'short_answer').length;
-  return mc === 4 && tf === 3 && sa === 3;
+  return mc === 20 && tf === 15 && sa === 15;
 }, {
-  message: "Quiz must contain exactly 4 Multiple Choice, 3 True/False, and 3 Short Answer questions"
+  message: "Quiz must contain exactly 20 Multiple Choice, 15 True/False, and 15 Short Answer questions"
 });
 
 export type ValidatedQuizResponse = z.infer<typeof QuizResponseSchema>;
