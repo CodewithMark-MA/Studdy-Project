@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
 import { safeParseAiJson } from '../../../lib/cleanJson';
 import { checkRateLimit } from '../../../lib/rateLimit';
-import { QuizResponseSchema } from '../../../lib/schemas/quizSchema';
+import { QuizQuestionSchema, QuizResponseSchema } from '../../../lib/schemas/quizSchema';
 import type { ApiErrorPayload } from '../../../lib/types';
 import { validateInputText } from '../../../lib/validateInput';
 
 const QUIZ_SYSTEM_PROMPT = `
 You are an expert educational assessment generator.
-Create a quiz based only on the provided source text.
+Create one batch of study questions based only on the provided source text.
 Return valid JSON only in this structure:
 {
-  "title": string,
   "questions": [
     {
       "id": number,
@@ -37,9 +37,8 @@ Return valid JSON only in this structure:
     }
   ]
 }
-Requirements:
-- Exactly 50 questions total.
-- Exactly 20 multiple choice, 15 true/false, and 15 short answer.
+Requirements for this batch:
+- Follow the exact question count and type distribution specified by the user message.
 - Each multiple choice question must have exactly 4 options.
 - Each true/false question must not include an options array.
 - Each short answer question must not include an options array.
@@ -51,6 +50,15 @@ Requirements:
 - Explanations are optional; omit them or keep them to one short sentence.
 - Ensure answers are accurate and strings are not empty.
 `;
+
+const BATCHES = [
+  { label: 'Batch 1', multipleChoice: 10, trueFalse: 8, shortAnswer: 7 },
+  { label: 'Batch 2', multipleChoice: 10, trueFalse: 7, shortAnswer: 8 },
+] as const;
+const MAX_COMPLETION_TOKENS = 8192;
+const BatchResponseSchema = z.object({
+  questions: z.array(QuizQuestionSchema).length(25, 'Each batch must contain exactly 25 questions'),
+});
 
 const errorResponse = (code: ApiErrorPayload['error']['code'], message: string, status: number) =>
   NextResponse.json({ success: false, error: { code, message } }, { status });
@@ -89,56 +97,70 @@ export async function POST(request: Request) {
       return errorResponse('INTERNAL_ERROR', 'Groq API key is not configured.', 500);
     }
 
-    const result = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'openai/gpt-oss-120b',
-        max_completion_tokens: 8192,
-        messages: [
-          { role: 'system', content: QUIZ_SYSTEM_PROMPT },
-          { role: 'user', content: `User notes:\n${text}` },
-        ],
-        response_format: { type: 'json_object' },
-      }),
-    });
+    const batchResults = await Promise.all(BATCHES.map(async (batch) => {
+      const result = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'openai/gpt-oss-120b',
+          max_completion_tokens: MAX_COMPLETION_TOKENS,
+          messages: [
+            { role: 'system', content: QUIZ_SYSTEM_PROMPT },
+            {
+              role: 'user',
+              content: `User notes:\n${text}\n\nGenerate exactly 25 questions for ${batch.label}: ${batch.multipleChoice} multiple_choice, ${batch.trueFalse} true_false, and ${batch.shortAnswer} short_answer. Avoid duplicates across this batch and keep fields concise.`,
+            },
+          ],
+          response_format: { type: 'json_object' },
+        }),
+      });
 
-    if (!result.ok) {
-      throw new Error(`Groq API request failed with status ${result.status}.`);
-    }
+      if (!result.ok) {
+        throw new Error(`Groq API request failed with status ${result.status}.`);
+      }
 
-    const completion = (await result.json()) as {
-      choices?: Array<{ message?: { content?: unknown } }>;
+      const completion = (await result.json()) as {
+        choices?: Array<{ message?: { content?: unknown } }>;
+      };
+      const rawText = typeof completion.choices?.[0]?.message?.content === 'string'
+        ? completion.choices[0].message.content
+        : '';
+      if (!rawText.trim()) throw new Error('The AI response was empty.');
+
+      const parsed = safeParseAiJson<unknown>(rawText);
+      const batchParse = BatchResponseSchema.safeParse(parsed);
+      if (!batchParse.success) {
+        throw new Error(`BATCH_VALIDATION: ${batchParse.error.issues[0]?.message || `${batch.label} validation failed.`}`);
+      }
+
+      const counts = batchParse.data.questions.reduce((result, question) => {
+        result[question.type] += 1;
+        return result;
+      }, { multiple_choice: 0, true_false: 0, short_answer: 0 });
+      if (counts.multiple_choice !== batch.multipleChoice || counts.true_false !== batch.trueFalse || counts.short_answer !== batch.shortAnswer) {
+        throw new Error(`BATCH_VALIDATION: ${batch.label} has an invalid question distribution.`);
+      }
+      return batchParse.data.questions;
+    }));
+
+    const combined = {
+      title: 'Study Practice Quiz',
+      questions: batchResults.flat().map((question, index) => ({ ...question, id: index + 1 })),
     };
-
-    const rawText = typeof completion.choices?.[0]?.message?.content === 'string'
-      ? completion.choices[0].message.content
-      : '';
-    if (!rawText.trim()) {
-      return errorResponse('AI_GENERATION_FAILED', 'The AI response was empty.', 500);
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = safeParseAiJson<unknown>(rawText);
-    } catch {
-      return errorResponse('AI_GENERATION_FAILED', 'The AI returned malformed JSON.', 500);
-    }
-
-    const parseResult = QuizResponseSchema.safeParse(parsed);
+    const parseResult = QuizResponseSchema.safeParse(combined);
     if (!parseResult.success) {
       return errorResponse('INVALID_INPUT', parseResult.error.issues[0]?.message || 'Quiz schema validation failed.', 400);
     }
 
     return NextResponse.json({ success: true, data: parseResult.data }, { status: 200 });
   } catch (error) {
-    return errorResponse(
-      'INTERNAL_ERROR',
-      error instanceof Error ? error.message : 'Unexpected server error.',
-      500,
-    );
+    const message = error instanceof Error ? error.message : 'Quiz generation failed.';
+    if (message.startsWith('BATCH_VALIDATION:')) {
+      return errorResponse('INVALID_INPUT', message.replace('BATCH_VALIDATION: ', ''), 400);
+    }
+    return errorResponse('AI_GENERATION_FAILED', message, 500);
   }
 }

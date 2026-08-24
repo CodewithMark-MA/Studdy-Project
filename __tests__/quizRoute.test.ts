@@ -13,6 +13,12 @@ const mockGroqResponse = (content: string) => {
   });
 };
 
+const mockBatchResponses = (first: string, second: string) => {
+  mockFetch
+    .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: first } }] }) })
+    .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: second } }] }) });
+};
+
 const VALID_TEXT = 'A'.repeat(500);
 
 const validQuestionPayload = {
@@ -120,6 +126,21 @@ validQuestionPayload.questions.push(
   })),
 );
 
+const validBatchOne = {
+  questions: [
+    ...validQuestionPayload.questions.filter((question) => question.type === 'multiple_choice').slice(0, 10),
+    ...validQuestionPayload.questions.filter((question) => question.type === 'true_false').slice(0, 8),
+    ...validQuestionPayload.questions.filter((question) => question.type === 'short_answer').slice(0, 7),
+  ],
+};
+const validBatchTwo = {
+  questions: [
+    ...validQuestionPayload.questions.filter((question) => question.type === 'multiple_choice').slice(10, 20),
+    ...validQuestionPayload.questions.filter((question) => question.type === 'true_false').slice(8, 15),
+    ...validQuestionPayload.questions.filter((question) => question.type === 'short_answer').slice(7, 15),
+  ],
+};
+
 async function makeRequest(text: string, headers: Record<string, string> = {}) {
   return POST(
     new Request('http://localhost/api/quiz', {
@@ -140,7 +161,7 @@ describe('Quiz API route', () => {
   });
 
   it('accepts valid input and returns a validated quiz', async () => {
-    mockGroqResponse(JSON.stringify(validQuestionPayload));
+    mockBatchResponses(JSON.stringify(validBatchOne), JSON.stringify(validBatchTwo));
 
     const response = await makeRequest(VALID_TEXT);
     const body = await response.json();
@@ -151,6 +172,7 @@ describe('Quiz API route', () => {
     expect(body.data.questions.filter((q: any) => q.type === 'multiple_choice')).toHaveLength(20);
     expect(body.data.questions.filter((q: any) => q.type === 'true_false')).toHaveLength(15);
     expect(body.data.questions.filter((q: any) => q.type === 'short_answer')).toHaveLength(15);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.groq.com/openai/v1/chat/completions',
       expect.objectContaining({
@@ -169,7 +191,7 @@ describe('Quiz API route', () => {
   });
 
   it('accepts input longer than the former 10000-character limit', async () => {
-    mockGroqResponse(JSON.stringify(validQuestionPayload));
+    mockBatchResponses(JSON.stringify(validBatchOne), JSON.stringify(validBatchTwo));
 
     const response = await makeRequest('A'.repeat(10001));
 
@@ -178,7 +200,7 @@ describe('Quiz API route', () => {
 
   it('rejects rate-limited requests', async () => {
     for (let i = 0; i < 11; i += 1) {
-      mockGroqResponse(JSON.stringify(validQuestionPayload));
+      mockBatchResponses(JSON.stringify(validBatchOne), JSON.stringify(validBatchTwo));
 
       const response = await makeRequest(VALID_TEXT, { 'x-forwarded-for': '10.0.0.100' });
 
@@ -196,7 +218,7 @@ describe('Quiz API route', () => {
   });
 
   it('rejects malformed AI JSON', async () => {
-    mockGroqResponse('```json\n{ invalid json');
+    mockBatchResponses('```json\n{ invalid json', JSON.stringify(validBatchTwo));
 
     const response = await makeRequest(VALID_TEXT);
     const body = await response.json();
@@ -206,18 +228,7 @@ describe('Quiz API route', () => {
   });
 
   it('rejects invalid schema output', async () => {
-    mockGroqResponse(JSON.stringify({
-        title: 'Bad Quiz',
-        questions: [
-          {
-            id: 1,
-            type: 'multiple_choice',
-            question: 'Question?',
-            options: ['A', 'B'],
-            answer: 'A',
-          },
-        ],
-      }));
+    mockBatchResponses(JSON.stringify({ questions: [{ id: 1, type: 'multiple_choice', question: 'Question?', options: ['A', 'B'], answer: 'A' }] }), JSON.stringify(validBatchTwo));
 
     const response = await makeRequest(VALID_TEXT);
     const body = await response.json();
@@ -227,21 +238,29 @@ describe('Quiz API route', () => {
   });
 
   it('rejects invalid question distribution', async () => {
-    mockGroqResponse(JSON.stringify({
-        title: 'Wrong Quiz',
-        questions: Array.from({ length: 50 }, (_, index) => ({
-          id: index + 1,
-          type: index < 20 ? 'multiple_choice' : index < 35 ? 'true_false' : 'short_answer',
-          question: `Question ${index + 1}?`,
-          ...(index < 20 ? { options: ['A', 'B', 'C', 'D'] } : {}),
-          answer: index < 35 ? 'True' : 'A',
-        })),
-      }));
+    const wrongBatch = {
+      questions: validBatchOne.questions.map((question, index) => index === 0
+        ? { ...question, type: 'true_false', answer: 'True', options: undefined }
+        : question),
+    };
+    mockBatchResponses(JSON.stringify(wrongBatch), JSON.stringify(validBatchTwo));
 
     const response = await makeRequest(VALID_TEXT);
     const body = await response.json();
 
     expect(response.status).toBe(400);
     expect(body.error.code).toBe('INVALID_INPUT');
+  });
+
+  it('returns a clean error when either Groq batch fails', async () => {
+    mockFetch
+      .mockRejectedValueOnce(new Error('Groq unavailable'))
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: JSON.stringify(validBatchTwo) } }] }) });
+
+    const response = await makeRequest(VALID_TEXT);
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ success: false, error: { code: 'AI_GENERATION_FAILED', message: 'Groq unavailable' } });
   });
 });
